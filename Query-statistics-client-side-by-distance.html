@@ -66,21 +66,14 @@
         "esri/widgets/Bookmarks",
         "esri/core/lang",
         "esri/core/promiseUtils",
-        "esri/core/reactiveUtils",
-        "esri/layers/GraphicsLayer",
-        "esri/Graphic",
-        "esri/geometry/geometryEngine",
-        "esri/widgets/ValuePicker"
-      ], (MapView, WebMap, Legend, Expand, Bookmarks, lang, promiseUtils, reactiveUtils, GraphicsLayer, Graphic, geometryEngine, ValuePicker) => {
+        "esri/core/reactiveUtils"
+      ], (MapView, WebMap, Legend, Expand, Bookmarks, lang, promiseUtils, reactiveUtils) => {
         // declare chart variables to update as the under interacts with the sample
 
         let yearChart, ageChart, dispositionChart, genderChart, raceChart, totalNumber, avgAge, avgOpenTime;
 
         // load a web map containing homicide statistics
         // from a portal item
-
-        const bufferLayer = new GraphicsLayer();
-        const pointLayer = new GraphicsLayer();
 
         const webmap = new WebMap({
           portalItem: {
@@ -92,7 +85,7 @@
           map: webmap,
           container: "viewDiv",
           constraints: {
-            minScale: 30000000
+            minScale: 300000
           },
           highlightOptions: {
             color: "black",
@@ -146,22 +139,6 @@
           }
         );
 
-        // Add value picker slider
-        const valuePicker = new ValuePicker({
-        component: {                                                // autocasts ValuePickerSlider when type is "slider".
-            type: "slider",
-            min: 0,                                                   // Start value
-            max: 50,                                                 // End value
-            steps: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],      // Thumb snapping locations
-            minorTicks: [5, 15, 25, 35, 45],      // Short tick lines
-            majorTicks: [0, 10, 20, 30, 40, 50], // Long tick lines
-            labels: [0, 10, 20, 30, 40, 50],                         // Long ticks with text
-            labelFormatFunction: (value) => `${value}`               // Label definition
-        },
-        values: [25]                                                // "current value"
-        });
-        view.ui.add(valuePicker, "bottom-left"); 
-
         const bookmarksWidget = new Bookmarks({
           view: view
         });
@@ -199,16 +176,6 @@
 
         let highlightHandle = null;
 
-        var radius = 25;  
-        //console.log("initial: ",radius)
-          reactiveUtils.watch(
-            () => valuePicker.values,
-            (values) => {
-                radius = values[0]
-                //console.log(radius)
-            }
-          )
-
         /**
          * Create charts and start querying the layer view when
          * the view is ready and data begins to draw in the view
@@ -238,7 +205,6 @@
                   event.stopPropagation();
                   queryStatsOnDrag(layerView, event)
                     .then(updateCharts)
-                    .then(createBuffer(event, view, radius))
                     .catch((error) => {
                       if (error.name !== "AbortError") {
                         console.error(error);
@@ -257,8 +223,8 @@
 
           const query = layerView.layer.createQuery();
           query.geometry = view.toMap(event); // converts the screen point to a map point
-          query.distance = radius; // queries all features within 1 mile of the point
-          query.units = "kilometers";
+          query.distance = 1; // queries all features within 1 mile of the point
+          query.units = "miles";
 
           const statsQuery = query.clone();
 
@@ -794,104 +760,6 @@
             }
           });
         }
-
-        // Add graphic buffer
-        const polySym = {
-          type: "simple-fill", // autocasts as new SimpleFillSymbol()
-          color: [68, 85, 90, 0.2],
-          outline: {
-            color: [68, 85, 90, 0.3],
-            width: 2
-          }
-        };
-
-        const pointSym = {
-          type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
-          color: [68, 85, 90],
-          outline: {
-            color: [255, 255, 255],
-            width: 0
-          },
-          size: 4
-        };
-        // Indicates whether buffering is enabled
-        let bufferEnabled = true;
-
-        function createBuffer(event, view, radius) {
-          // prevent further propagation of the current event bubbling up the event chain.
-          // in this case, it will prevent default `drag` event behavior for the MapView
-          // which is to move around the view by dragging the pointer.
-          //event.stopPropagation();
-
-          // convert screen coordinates to map coordinates
-          const point = view.toMap(event);
-
-          if (point) {
-            bufferPoint(point,radius);
-            
-          }
-        }
-
-         /**
-         * Buffers the given point by 560 kilometers.
-         *
-         * @param {esri/geometry/Point} point - A point instance to buffer.
-         */
-         function bufferPoint(point,radius) {
-          if (!bufferEnabled) {
-            console.log("buffering not enabled. Hit the b key and click/drag to buffer.");
-            return;
-          }
-
-          // removes z-values from the point when taken from a SceneView.
-          // GeometryEngine does not support 3D geometries.
-          point.hasZ = false;
-          point.z = undefined;
-
-          if(pointLayer.graphics.length === 0){
-            pointLayer.add(
-              new Graphic({
-                geometry: point,
-                symbol: pointSym
-              })
-            );
-          } else {
-            const graphic = pointLayer.graphics.getItemAt(0);
-            graphic.geometry = point;
-          }
-
-          /********************************************************************
-           * Geodesic buffer calculates the true distance to buffer a point,
-           * minimizing the distortion that exists when buffering points away
-           * from a projection's line of tangency. This distortion is evident
-           * in the 2D view of this application. This map uses a Web Mercator
-           * spatial reference, which has a line of tangency at the equator.
-           * Buffers created on the equator have very little distortion in their
-           * shape. The further buffers are created away from the equator, the
-           * more distorted they will be in their shape.
-           *
-           * If using a standard planar buffer, the shape of the buffers won't
-           * distort in 2D views, but their size and areas will be very distorted
-           * as they move away from the equator.
-           ********************************************************************/
-          webmap.add(bufferLayer)
-          webmap.add(pointLayer)
-
-          const buffer = geometryEngine.geodesicBuffer(point, radius, "kilometers");
-
-          if(bufferLayer.graphics.length === 0){
-            bufferLayer.add(
-              new Graphic({
-                geometry: buffer,
-                symbol: polySym
-              })
-            );
-          } else {
-            const graphic = bufferLayer.graphics.getItemAt(0);
-            graphic.geometry = buffer;
-          }
-        }        
-
       });
     </script>
   </head>
