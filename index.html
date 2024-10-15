@@ -54,7 +54,9 @@
         font-weight: bolder;
       }
     </style>
-
+    
+    <script type="module" src="https://js.arcgis.com/calcite-components/2.13.0/calcite.esm.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/calcite-components/2.13.0/calcite.css" />
     <script src="https://js.arcgis.com/4.30/"></script>
 
     <script>
@@ -84,7 +86,8 @@
 
         const webmap = new WebMap({
           portalItem: {
-            id: "96cf806c32874026bef5f586315f098c"
+            //id: "96cf806c32874026bef5f586315f098c"
+            id: "698198ea87b34c0c81b7fdba0687f6d4"
           }
         });
 
@@ -218,6 +221,9 @@
           // Create the charts when the view is ready
           createCharts();
 
+          const layer = webmap.layers.getItemAt(1);
+          layer.outFields = ["OBJECTID","gridcode"];
+/*
           const layer = webmap.layers.getItemAt(0);
           layer.outFields = [
             "victim_age_years",
@@ -227,7 +233,7 @@
             "disposition",
             "milliseconds"
           ];
-
+*/
           view.whenLayerView(layer).then((layerView) => {
             reactiveUtils
               .whenOnce(() => !layerView.updating)
@@ -262,6 +268,7 @@
           query.units = "kilometers";
 
           const statsQuery = query.clone();
+          //console.log(statsQuery)
 
           // date used to calculate the average time a case has been opened
 
@@ -273,21 +280,22 @@
           // `statisticType` can be sum, avg, min, max, count, stddev
           const statDefinitions = [
             // Age of crime since it was reported in years
-
+/*
             {
               onStatisticField: "(" + dataDownloadDate + " - milliseconds) / (1000 * 60 * 60 * 24 * 365.25)",
               outStatisticFieldName: "avg_open_time_years",
               statisticType: "avg"
             },
-
+*/
             // total homicides
 
             {
-              onStatisticField: "1",
+              onStatisticField: "OBJECTID",
+              //outStatisticFieldName: "total",
               outStatisticFieldName: "total",
-              statisticType: "count"
+              statisticType: "max"
             },
-
+/*
             // total homicides by year
             //
             // Since separate fields don't exist for each year, we can use
@@ -452,7 +460,7 @@
               onStatisticField: "CASE WHEN victim_race = 'White' THEN 1 ELSE 0 END",
               outStatisticFieldName: "num_white",
               statisticType: "sum"
-            }
+            }*/
           ];
 
           // add the stat definitions to the the statistics query object cloned earlier
@@ -461,7 +469,10 @@
           // execute the query for all features in the layer view
           const allStatsResponse = layerView.queryFeatures(statsQuery).then(
             (response) => {
+              //console.log(response.features[0].layer.fields);
+              console.log(response.features[0].attributes);
               const stats = response.features[0].attributes;
+              //console.log(stats)
               return stats;
             },
             (e) => {
@@ -471,7 +482,7 @@
 
           const openStatsQuery = statsQuery.clone();
           openStatsQuery.where = "disposition = 'Open/No arrest'";
-
+/*
           // execute the query for only unsolved homicides in the layer view
           const unsolvedStatsResponse = layerView.queryFeatures(openStatsQuery).then(
             (response) => {
@@ -482,7 +493,7 @@
               console.error(e);
             }
           );
-
+*/
           // highlight all features within the query distance
           layerView.queryObjectIds(query).then((ids) => {
             if (highlightHandle) {
@@ -493,7 +504,8 @@
           });
 
           // Return the promises that will resolve to each set of statistics
-          return promiseUtils.eachAlways([allStatsResponse, unsolvedStatsResponse]);
+          //return promiseUtils.eachAlways([allStatsResponse, unsolvedStatsResponse]);
+          return promiseUtils.eachAlways([allStatsResponse]);
         });
 
         /**
@@ -501,8 +513,9 @@
          */
         function updateCharts(responses) {
           const allStats = responses[0].value;
-          const unsolvedStats = responses[1].value;
-
+          //console.log(responses)
+          //const unsolvedStats = responses[1].value;
+/*
           const yearChartStats = {
             solved: [
               allStats.total_2008 - unsolvedStats.total_2008,
@@ -573,12 +586,12 @@
             unsolvedStats.num_white
           ];
           updateChart(raceChart, raceStats);
-
+*/
           // Update the total numbers in the title UI element
-          avgAge.innerHTML = Math.round(allStats.avg_age);
+          //avgAge.innerHTML = Math.round(allStats.avg_age);
           totalNumber.innerHTML = allStats.total;
-          avgOpenTime.innerHTML =
-            unsolvedStats.avg_open_time_years != null ? unsolvedStats.avg_open_time_years.toFixed(1) : 0;
+          //avgOpenTime.innerHTML =
+          //  unsolvedStats.avg_open_time_years != null ? unsolvedStats.avg_open_time_years.toFixed(1) : 0;
         }
 
         /**

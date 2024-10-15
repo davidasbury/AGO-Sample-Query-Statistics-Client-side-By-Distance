@@ -225,8 +225,9 @@ console.log(query)
           // execute the query for all features in the layer view
           const allStatsResponse = layerView.queryFeatures(statsQuery).then(
             (response) => {
+              console.log(response.features)
               const stats = response.features[0].attributes;
-              console.log(stats)
+              //console.log(stats)
               return stats;
             },
             (e) => {
